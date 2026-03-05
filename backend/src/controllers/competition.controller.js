@@ -97,6 +97,18 @@ const startCompetition = async (req, res) => {
     competition.endTime = new Date(Date.now() + competition.duration * 60 * 1000);
     await competition.save();
 
+    // Emit real-time event to all participants
+    const io = req.app.get('io');
+    if (io) {
+      io.to(req.params.id).emit('competition-started', {
+        competitionId: competition._id,
+        startTime: competition.startTime,
+        endTime: competition.endTime,
+        duration: competition.duration,
+        status: 'active'
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Competition started successfully',
@@ -141,6 +153,20 @@ const endCompetition = async (req, res) => {
     competition.status = 'ended';
     competition.endTime = new Date();
     await competition.save();
+
+    // Emit real-time event to all participants
+    const io = req.app.get('io');
+    if (io) {
+      const populatedCompetition = await Competition.findById(req.params.id)
+        .populate('leaderboard.user', 'username email');
+      
+      io.to(req.params.id).emit('competition-ended', {
+        competitionId: competition._id,
+        endTime: competition.endTime,
+        status: 'ended',
+        finalLeaderboard: formatLeaderboard(populatedCompetition)
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -193,6 +219,16 @@ const joinCompetition = async (req, res) => {
     });
 
     await competition.save();
+
+    // Emit real-time event about new participant
+    const io = req.app.get('io');
+    if (io) {
+      io.to(req.params.id).emit('user-joined-competition', {
+        userId: req.user.id,
+        username: req.user.username,
+        timestamp: Date.now()
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -261,6 +297,17 @@ const setFocusedPlayer = async (req, res) => {
     competition.focusedPlayer = playerId;
     await competition.save();
 
+    // Emit real-time event to all viewers
+    const io = req.app.get('io');
+    if (io) {
+      const focusedUser = await require('../models/User').findById(playerId).select('username email');
+      io.to(req.params.id).emit('player-focused', {
+        focusedUserId: playerId,
+        focusedUsername: focusedUser ? focusedUser.username : 'Unknown',
+        timestamp: Date.now()
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Focused player set successfully',
@@ -273,6 +320,27 @@ const setFocusedPlayer = async (req, res) => {
       message: 'Server error while setting focused player'
     });
   }
+};
+
+// Helper function to format leaderboard
+const formatLeaderboard = (competition) => {
+  if (!competition || !competition.leaderboard) return [];
+
+  const sortedLeaderboard = [...competition.leaderboard].sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(a.lastUpdate) - new Date(b.lastUpdate);
+  });
+
+  return sortedLeaderboard.map((entry, index) => ({
+    rank: index + 1,
+    userId: entry.user._id || entry.user,
+    username: entry.user.username || 'Unknown',
+    score: entry.score,
+    solvedProblems: entry.solvedProblems.length,
+    lastUpdate: entry.lastUpdate
+  }));
 };
 
 module.exports = {

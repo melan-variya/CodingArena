@@ -106,6 +106,17 @@ const updateLeaderboard = async (req, res) => {
 
     await competition.save();
 
+    // Emit real-time leaderboard update
+    const io = req.app.get('io');
+    if (io) {
+      const updatedCompetition = await Competition.findById(competitionId)
+        .populate('leaderboard.user', 'username email');
+      
+      io.to(competitionId).emit('leaderboard-update', {
+        leaderboard: formatLeaderboard(updatedCompetition)
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Leaderboard updated successfully',
@@ -122,6 +133,27 @@ const updateLeaderboard = async (req, res) => {
       message: 'Server error while updating leaderboard'
     });
   }
+};
+
+// Helper function to format leaderboard
+const formatLeaderboard = (competition) => {
+  if (!competition || !competition.leaderboard) return [];
+
+  const sortedLeaderboard = [...competition.leaderboard].sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(a.lastUpdate) - new Date(b.lastUpdate);
+  });
+
+  return sortedLeaderboard.map((entry, index) => ({
+    rank: index + 1,
+    userId: entry.user._id || entry.user,
+    username: entry.user.username || 'Unknown',
+    score: entry.score,
+    solvedProblems: entry.solvedProblems.length,
+    lastUpdate: entry.lastUpdate
+  }));
 };
 
 module.exports = {

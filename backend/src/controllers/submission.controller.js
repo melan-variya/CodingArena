@@ -138,6 +138,19 @@ const submitSolution = async (req, res) => {
       isSubmission: true
     });
 
+    // Get Socket.io instance
+    const io = req.app.get('io');
+
+    // Notify all users in competition about new submission
+    if (io) {
+      io.to(competitionId).emit('submission-received', {
+        userId: req.user.id,
+        username: req.user.username,
+        problemIndex,
+        timestamp: Date.now()
+      });
+    }
+
     // Simulate code execution and evaluation
     setTimeout(async () => {
       const allPassed = Math.random() > 0.3; // 70% success rate for demo
@@ -172,8 +185,41 @@ const submitSolution = async (req, res) => {
             });
             leaderboardEntry.lastUpdate = new Date();
             await competition.save();
+
+            // Emit real-time leaderboard update
+            if (io) {
+              const updatedCompetition = await Competition.findById(competitionId)
+                .populate('leaderboard.user', 'username email');
+              
+              const formattedLeaderboard = formatLeaderboard(updatedCompetition);
+              
+              io.to(competitionId).emit('leaderboard-update', {
+                leaderboard: formattedLeaderboard
+              });
+
+              io.to(competitionId).emit('submission-accepted', {
+                userId: req.user.id,
+                username: req.user.username,
+                problemIndex,
+                points,
+                timestamp: Date.now()
+              });
+            }
           }
         }
+      }
+
+      // Notify user of their submission result
+      if (io) {
+        io.emit('submission-status', {
+          submissionId: submission._id,
+          userId: req.user.id,
+          status: submission.status,
+          testCasesPassed: submission.testCasesPassed,
+          totalTestCases: submission.totalTestCases,
+          executionTime: submission.executionTime,
+          memoryUsed: submission.memoryUsed
+        });
       }
     }, 2000);
 
@@ -192,6 +238,27 @@ const submitSolution = async (req, res) => {
       message: 'Server error while submitting solution'
     });
   }
+};
+
+// Helper function to format leaderboard
+const formatLeaderboard = (competition) => {
+  if (!competition || !competition.leaderboard) return [];
+
+  const sortedLeaderboard = [...competition.leaderboard].sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(a.lastUpdate) - new Date(b.lastUpdate);
+  });
+
+  return sortedLeaderboard.map((entry, index) => ({
+    rank: index + 1,
+    userId: entry.user._id || entry.user,
+    username: entry.user.username || 'Unknown',
+    score: entry.score,
+    solvedProblems: entry.solvedProblems.length,
+    lastUpdate: entry.lastUpdate
+  }));
 };
 
 module.exports = {

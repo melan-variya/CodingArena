@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.io Test Client - CodingArena</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d3748;
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status.connected {
+            background: #48bb78;
+            color: white;
+        }
+
+        .status.disconnected {
+            background: #f56565;
+            color: white;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #f56565;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-success {
+            background: #48bb78;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .logs {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+
+        .log-entry.success {
+            border-left-color: #48bb78;
+        }
+
+        .log-entry.error {
+            border-left-color: #f56565;
+        }
+
+        .log-entry.info {
+            border-left-color: #4299e1;
+        }
+
+        .log-time {
+            color: #a0aec0;
+            font-size: 11px;
+        }
+
+        .timer-display {
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            color: #667eea;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .leaderboard-table th {
+            background: #edf2f7;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .leaderboard-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+        }
+
+        .rank-1 { background: #f6ad55; }
+        .rank-2 { background: #cbd5e0; }
+        .rank-3 { background: #d69e2e; }
+        .rank-default { background: #667eea; }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔌 Socket.io Test Client - CodingArena</h1>
+            <p>Week 8: Real-Time Communication Integration Testing</p>
+            <div id="connectionStatus" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="main-content">
+            <!-- Connection Panel -->
+            <div class="panel">
+                <h2>🔐 Connection</h2>
+                <div class="form-group">
+                    <label>Server URL</label>
+                    <input type="text" id="serverUrl" value="http://localhost:5000">
+                </div>
+                <div class="form-group">
+                    <label>JWT Token</label>
+                    <input type="text" id="jwtToken" placeholder="Enter your JWT token">
+                </div>
+                <div class="button-group">
+                    <button id="connectBtn" class="btn-success">Connect</button>
+                    <button id="disconnectBtn" class="btn-danger" disabled>Disconnect</button>
+                </div>
+            </div>
+
+            <!-- Join Competition Panel -->
+            <div class="panel">
+                <h2>🏆 Competition</h2>
+                <div class="form-group">
+                    <label>Competition ID</label>
+                    <input type="text" id="competitionId" placeholder="Enter competition ID">
+                </div>
+                <div class="button-group">
+                    <button id="joinBtn" disabled>Join Competition</button>
+                    <button id="leaveBtn" disabled>Leave Competition</button>
+                </div>
+                <div class="button-group">
+                    <button id="startBtn" disabled>Start Competition (Organizer)</button>
+                    <button id="endBtn" disabled class="btn-danger">End Competition (Organizer)</button>
+                </div>
+            </div>
+
+            <!-- Timer Display -->
+            <div class="panel">
+                <h2>⏱️ Timer</h2>
+                <div class="timer-display" id="timerDisplay">--:--</div>
+            </div>
+
+            <!-- Code Sync Panel -->
+            <div class="panel">
+                <h2>💻 Code Synchronization</h2>
+                <div class="form-group">
+                    <label>Problem Index</label>
+                    <input type="number" id="problemIndex" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Language</label>
+                    <select id="language">
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="cpp">C++</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Code</label>
+                    <textarea id="codeEditor" placeholder="Enter your code here..."></textarea>
+                </div>
+                <div class="button-group">
+                    <button id="syncCodeBtn" disabled>Sync Code</button>
+                    <button id="submitCodeBtn" disabled class="btn-success">Submit Code</button>
+                </div>
+            </div>
+
+            <!-- Leaderboard Panel -->
+            <div class="panel full-width">
+                <h2>🏅 Live Leaderboard</h2>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Username</th>
+                            <th>Score</th>
+                            <th>Problems Solved</th>
+                            <th>Last Update</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: #a0aec0;">
+                                No leaderboard data yet
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Event Logs -->
+            <div class="panel full-width">
+                <h2>📋 Event Logs</h2>
+                <div class="logs" id="eventLogs">
+                    <div class="log-entry info">
+                        <div class="log-time">Ready to connect</div>
+                        <div>Waiting for connection...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentCompetitionId = null;
+
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const joinBtn = document.getElementById('joinBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const startBtn = document.getElementById('startBtn');
+        const endBtn = document.getElementById('endBtn');
+        const syncCodeBtn = document.getElementById('syncCodeBtn');
+        const submitCodeBtn = document.getElementById('submitCodeBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const eventLogs = document.getElementById('eventLogs');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const leaderboardBody = document.getElementById('leaderboardBody');
+
+        // Logging function
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <div class="log-time">${time}</div>
+                <div>${message}</div>
+            `;
+            eventLogs.insertBefore(entry, eventLogs.firstChild);
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            connectionStatus.textContent = connected ? 'Connected' : 'Disconnected';
+            connectionStatus.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            joinBtn.disabled = !connected;
+            leaveBtn.disabled = !connected || !currentCompetitionId;
+            startBtn.disabled = !connected || !currentCompetitionId;
+            endBtn.disabled = !connected || !currentCompetitionId;
+            syncCodeBtn.disabled = !connected || !currentCompetitionId;
+            submitCodeBtn.disabled = !connected || !currentCompetitionId;
+        }
+
+        // Connect to server
+        connectBtn.addEventListener('click', () => {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const jwtToken = document.getElementById('jwtToken').value;
+
+            if (!jwtToken) {
+                alert('Please enter a JWT token');
+                return;
+            }
+
+            socket = io(serverUrl, {
+                auth: { token: jwtToken }
+            });
+
+            // Connection events
+            socket.on('connect', () => {
+                log('✅ Connected to server', 'success');
+                updateConnectionStatus(true);
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+            });
+
+            socket.on('disconnect', () => {
+                log('⚠️ Disconnected from server', 'error');
+                updateConnectionStatus(false);
+                currentCompetitionId = null;
+            });
+
+            // Competition events
+            socket.on('competition-joined', (data) => {
+                log(`🏆 Joined competition: ${data.competition.title}`, 'success');
+                currentCompetitionId = data.competitionId;
+                updateConnectionStatus(true);
+            });
+
+            socket.on('competition-started', (data) => {
+                log(`🚀 Competition started! Duration: ${data.duration} minutes`, 'success');
+            });
+
+            socket.on('competition-ended', (data) => {
+                log('🏁 Competition ended!', 'info');
+                timerDisplay.textContent = '00:00';
+            });
+
+            // Timer events
+            socket.on('timer-update', (data) => {
+                timerDisplay.textContent = data.formatted;
+            });
+
+            // Code synchronization
+            socket.on('code-synced', (data) => {
+                log(`💻 ${data.username} updated code for problem ${data.problemIndex}`, 'info');
+            });
+
+            socket.on('submission-received', (data) => {
+                log(`📤 ${data.username} submitted problem ${data.problemIndex}`, 'info');
+            });
+
+            socket.on('submission-accepted', (data) => {
+                log(`✅ ${data.username} solved problem ${data.problemIndex} (+${data.points} points)`, 'success');
+            });
+
+            socket.on('submission-status', (data) => {
+                log(`📊 Your submission: ${data.status} (${data.testCasesPassed}/${data.totalTestCases} tests)`, 
+                    data.status === 'accepted' ? 'success' : 'error');
+            });
+
+            // Leaderboard updates
+            socket.on('leaderboard-update', (data) => {
+                log('🏅 Leaderboard updated', 'info');
+                updateLeaderboard(data.leaderboard);
+            });
+
+            // User events
+            socket.on('user-joined', (data) => {
+                log(`👥 ${data.username} joined the competition`, 'info');
+            });
+
+            socket.on('user-left', (data) => {
+                log(`👋 ${data.username} left the competition`, 'info');
+            });
+
+            // Focus events
+            socket.on('player-focused', (data) => {
+                log(`🎥 Now focusing on: ${data.focusedUsername}`, 'info');
+            });
+
+            // Error events
+            socket.on('error', (data) => {
+                log(`❌ Error: ${data.message}`, 'error');
+            });
+        });
+
+        // Disconnect
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateConnectionStatus(false);
+            }
+        });
+
+        // Join competition
+        joinBtn.addEventListener('click', () => {
+            const competitionId = document.getElementById('competitionId').value;
+            if (!competitionId) {
+                alert('Please enter a competition ID');
+                return;
+            }
+            socket.emit('join-competition', { competitionId });
+        });
+
+        // Leave competition
+        leaveBtn.addEventListener('click', () => {
+            socket.emit('leave-competition');
+            currentCompetitionId = null;
+            updateConnectionStatus(true);
+        });
+
+        // Start competition
+        startBtn.addEventListener('click', () => {
+            socket.emit('competition-start', { competitionId: currentCompetitionId });
+        });
+
+        // End competition
+        endBtn.addEventListener('click', () => {
+            socket.emit('competition-end', { competitionId: currentCompetitionId });
+        });
+
+        // Sync code
+        syncCodeBtn.addEventListener('click', () => {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('language').value;
+            const problemIndex = parseInt(document.getElementById('problemIndex').value);
+
+            socket.emit('code-update', {
+                competitionId: currentCompetitionId,
+                problemIndex,
+                code,
+                language,
+                cursorPosition: { line: 0, column: 0 }
+            });
+            log('💾 Code synced', 'success');
+        });
+
+        // Submit code
+        submitCodeBtn.addEventListener('click', () => {
+            const code = document.getElementById('codeEditor').value;
+            const language = document.getElementById('language').value;
+            const problemIndex = parseInt(document.getElementById('problemIndex').value);
+
+            socket.emit('code-submit', {
+                competitionId: currentCompetitionId,
+                problemIndex,
+                code,
+                language
+            });
+            log('🎯 Code submitted for evaluation', 'success');
+        });
+
+        // Update leaderboard display
+        function updateLeaderboard(leaderboard) {
+            if (!leaderboard || leaderboard.length === 0) {
+                leaderboardBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: #a0aec0;">
+                            No leaderboard data yet
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            leaderboardBody.innerHTML = leaderboard.map(entry => {
+                const rankClass = entry.rank <= 3 ? `rank-${entry.rank}` : 'rank-default';
+                const lastUpdate = new Date(entry.lastUpdate).toLocaleTimeString();
+                
+                return `
+                    <tr>
+                        <td><span class="rank-badge ${rankClass}">${entry.rank}</span></td>
+                        <td>${entry.username}</td>
+                        <td><strong>${entry.score}</strong></td>
+                        <td>${entry.solvedProblems}</td>
+                        <td>${lastUpdate}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Initialize
+        updateConnectionStatus(false);
+    </script>
+</body>
+</html>
